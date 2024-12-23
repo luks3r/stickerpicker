@@ -1,0 +1,10 @@
+{
+  "packs": [
+    "PhilTheOwl.json",
+    "chrisvk.json",
+    "NekoHD.json",
+    "mintyvk.json",
+    "kocheng.json"
+  ],
+  "homeserver_url": "https://matrix-client.matrix.org"
+}
