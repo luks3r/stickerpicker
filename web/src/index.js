@@ -13,10 +13,10 @@
 //
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
-import {html, render, Component} from "../lib/htm/preact.js"
-import {Spinner} from "./spinner.js"
-import {SearchBox} from "./search-box.js"
-import {giphyIsEnabled, GiphySearchTab, setGiphyAPIKey} from "./giphy.js"
+import { html, render, Component } from "../lib/htm/preact.js"
+import { Spinner } from "./spinner.js"
+import { SearchBox } from "./search-box.js"
+import { giphyIsEnabled, GiphySearchTab, setGiphyAPIKey } from "./giphy.js"
 import * as widgetAPI from "./widget-api.js"
 import * as frequent from "./frequently-used.js"
 
@@ -120,7 +120,7 @@ class App extends Component {
 			filtering: {
 				...this.state.filtering,
 				searchTerm,
-				packs: packsWithFilteredStickers.filter(({stickers}) => !!stickers.length),
+				packs: packsWithFilteredStickers.filter(({ stickers }) => !!stickers.length),
 			},
 		})
 	}
@@ -137,10 +137,10 @@ class App extends Component {
 	setTheme(theme) {
 		if (theme === "default") {
 			delete localStorage.mauStickerThemeOverride
-			this.setState({theme: this.defaultTheme})
+			this.setState({ theme: this.defaultTheme })
 		} else {
 			localStorage.mauStickerThemeOverride = theme
-			this.setState({theme: theme})
+			this.setState({ theme: theme })
 		}
 	}
 
@@ -156,7 +156,7 @@ class App extends Component {
 
 	_loadPacks(disableCache = false) {
 		const cache = disableCache ? "no-cache" : undefined
-		fetch(INDEX, {cache}).then(async indexRes => {
+		fetch(INDEX, { cache }).then(async indexRes => {
 			if (indexRes.status >= 400) {
 				this.setState({
 					loading: false,
@@ -173,9 +173,9 @@ class App extends Component {
 			for (const packFile of indexData.packs) {
 				let packRes
 				if (packFile.startsWith("https://") || packFile.startsWith("http://")) {
-					packRes = await fetch(packFile, {cache})
+					packRes = await fetch(packFile, { cache })
 				} else {
-					packRes = await fetch(`${PACKS_BASE_URL}/${packFile}`, {cache})
+					packRes = await fetch(`${PACKS_BASE_URL}/${packFile}`, { cache })
 				}
 				const packData = await packRes.json()
 				for (const sticker of packData.stickers) {
@@ -187,7 +187,7 @@ class App extends Component {
 				})
 			}
 			this.updateFrequentlyUsed()
-		}, error => this.setState({loading: false, error}))
+		}, error => this.setState({ loading: false, error }))
 	}
 
 	componentDidMount() {
@@ -238,9 +238,9 @@ class App extends Component {
 			}
 		}
 		if (minXElem !== null) {
-			minXElem.scrollIntoView({inline: "start"})
+			minXElem.scrollIntoView({ inline: "start" })
 		} else if (maxXElem !== null) {
-			maxXElem.scrollIntoView({inline: "end"})
+			maxXElem.scrollIntoView({ inline: "end" })
 		}
 	}
 
@@ -302,21 +302,21 @@ class App extends Component {
 		const onClickOverride = this.state.viewingGifs
 			? (evt, packID) => {
 				evt.preventDefault()
-				this.setState({viewingGifs: false}, () => {
+				this.setState({ viewingGifs: false }, () => {
 					scrollToSection(null, packID)
 				})
 			} : null
-		const switchToGiphy = () => this.setState({viewingGifs: true, filtering: defaultState.filtering})
+		const switchToGiphy = () => this.setState({ viewingGifs: true, filtering: defaultState.filtering })
 
 		return html`
 			<main class="has-content ${theme}">
 				<nav onWheel=${this.navScroll} ref=${elem => this.navRef = elem}>
 					${giphyIsEnabled() && html`
-						<${NavBarItem} pack=${{id: "giphy", title: "GIPHY"}} iconOverride="giphy" onClickOverride=${switchToGiphy} extraClass=${this.state.viewingGifs ? "visible" : ""}/>
+						<${NavBarItem} pack=${{ id: "giphy", title: "GIPHY" }} iconOverride="giphy" onClickOverride=${switchToGiphy} extraClass=${this.state.viewingGifs ? "visible" : ""}/>
 					`}
 					<${NavBarItem} pack=${this.state.frequentlyUsed} iconOverride="recent" onClickOverride=${onClickOverride}/>
 					${this.state.packs.map(pack => html`<${NavBarItem} id=${pack.id} pack=${pack} onClickOverride=${onClickOverride}/>`)}
-					<${NavBarItem} pack=${{id: "settings", title: "Settings"}} iconOverride="settings" onClickOverride=${onClickOverride}/>
+					<${NavBarItem} pack=${{ id: "settings", title: "Settings" }} iconOverride="settings" onClickOverride=${onClickOverride}/>
 				</nav>
 
 				${this.state.viewingGifs ? html`
@@ -325,8 +325,8 @@ class App extends Component {
 					<${SearchBox} onInput=${this.searchStickers} value=${this.state.filtering.searchTerm ?? ""}/>
 					<div class="pack-list ${isMobileSafari ? "ios-safari-hack" : ""}" ref=${(elem) => (this.packListRef = elem)}>
 						${filterActive && packs.length === 0
-							? html`<div class="search-empty"><h1>No stickers match your search</h1></div>`
-							: null}
+					? html`<div class="search-empty"><h1>No stickers match your search</h1></div>`
+					: null}
 						${packs.map((pack) => html`<${Pack} id=${pack.id} pack=${pack} send=${this.sendSticker}/>`)}
 						<${Settings} app=${this}/>
 					</div>
@@ -335,7 +335,7 @@ class App extends Component {
 	}
 }
 
-const Settings = ({app}) => html`
+const Settings = ({ app }) => html`
 	<section class="stickerpack settings" id="pack-settings" data-pack-id="settings">
 		<h1>Settings</h1>
 		<div class="settings-list">
@@ -364,12 +364,12 @@ const Settings = ({app}) => html`
 const scrollToSection = (evt, id) => {
 	const pack = document.getElementById(`pack-${id}`)
 	if (pack) {
-		pack.scrollIntoView({block: "start", behavior: "instant"})
+		pack.scrollIntoView({ block: "start", behavior: "instant" })
 	}
 	evt?.preventDefault()
 }
 
-const NavBarItem = ({pack, iconOverride = null, onClickOverride = null, extraClass = null}) => html`
+const NavBarItem = ({ pack, iconOverride = null, onClickOverride = null, extraClass = null }) => html`
 	<a href="#pack-${pack.id}" id="nav-${pack.id}" data-pack-id=${pack.id} title=${pack.title} class="${extraClass}"
 	   onClick=${onClickOverride ? (evt => onClickOverride(evt, pack.id)) : (isMobileSafari ? (evt => scrollToSection(evt, pack.id)) : undefined)}>
 		<div class="sticker">
@@ -383,7 +383,7 @@ const NavBarItem = ({pack, iconOverride = null, onClickOverride = null, extraCla
 	</a>
 `
 
-const Pack = ({pack, send}) => html`
+const Pack = ({ pack, send }) => html`
 	<section class="stickerpack" id="pack-${pack.id}" data-pack-id=${pack.id}>
 		<h1>${pack.title}</h1>
 		<div class="sticker-list">
@@ -394,7 +394,7 @@ const Pack = ({pack, send}) => html`
 	</section>
 `
 
-const Sticker = ({content, send}) => html`
+const Sticker = ({ content, send }) => html`
 	<div class="sticker" onClick=${send} data-sticker-id=${content.id}>
 		<img data-src=${makeThumbnailURL(content.url)} alt=${content.body} title=${content.body}/>
 	</div>

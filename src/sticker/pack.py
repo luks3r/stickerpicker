@@ -1,5 +1,6 @@
 # maunium-stickerpicker - A fast and simple Matrix sticker picker widget.
 # Copyright (C) 2020 Tulir Asokan
+# Copyright (C) 2024 Lukser
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as published by
@@ -13,14 +14,15 @@
 #
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
-from typing import Dict, Optional
-from hashlib import sha256
-import mimetypes
 import argparse
-import os.path
 import asyncio
-import string
 import json
+import mimetypes
+import os.path
+import string
+from hashlib import sha256
+from typing import Dict, Optional
+from .lib.image import GenericImage, ImageFormat
 
 try:
     import magic
@@ -54,7 +56,7 @@ async def upload_sticker(
         mime = magic.from_file(path, mime=True)
     else:
         mime, _ = mimetypes.guess_type(file)
-    if not mime.startswith("image/"):
+    if not mime or not mime.startswith("image/"):
         return None
 
     print(f"Processing {file}", end="", flush=True)
@@ -80,11 +82,23 @@ async def upload_sticker(
         }
         print(".. using existing upload")
     else:
-        image_data, width, height = util.convert_image(image_data)
+        image_format = ImageFormat.from_mime_type(mime)
+        generic_image = GenericImage.from_bytes(image_data, image_format)
+
         print(".", end="", flush=True)
-        mxc = await matrix.upload(image_data, "image/png", file)
+        mxc = await matrix.upload(
+            generic_image.data,
+            image_format.to_mime_type(),
+            f"{file}.{image_format.to_extension()}",
+        )
         print(".", end="", flush=True)
-        sticker = util.make_sticker(mxc, width, height, len(image_data), name)
+        sticker: matrix.StickerInfo = util.make_sticker(
+            mxc,
+            generic_image.width,
+            generic_image.height,
+            len(generic_image.data),
+            name,
+        )
         sticker["id"] = sticker_id
         print(" uploaded", flush=True)
     return sticker
@@ -128,29 +142,34 @@ async def main(args: argparse.Namespace) -> None:
         util.add_to_index(picker_file_name, args.add_to_index)
 
 
-parser = argparse.ArgumentParser()
-parser.add_argument(
-    "--config",
-    help="Path to JSON file with Matrix homeserver and access_token",
-    type=str,
-    default="config.json",
-    metavar="file",
-)
-parser.add_argument(
-    "--title", help="Override the sticker pack displayname", type=str, metavar="title"
-)
-parser.add_argument("--id", help="Override the sticker pack ID", type=str, metavar="id")
-parser.add_argument(
-    "--add-to-index",
-    help="Sticker picker pack directory (usually 'web/packs/')",
-    type=str,
-    metavar="path",
-)
-parser.add_argument("path", help="Path to the sticker pack directory", type=str)
-
-
 def cmd():
-    asyncio.get_event_loop().run_until_complete(main(parser.parse_args()))
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--config",
+        help="Path to JSON file with Matrix homeserver and access_token",
+        type=str,
+        default="config.json",
+        metavar="file",
+    )
+    parser.add_argument(
+        "--title",
+        help="Override the sticker pack displayname",
+        type=str,
+        metavar="title",
+    )
+    parser.add_argument(
+        "--id", help="Override the sticker pack ID", type=str, metavar="id"
+    )
+    parser.add_argument(
+        "--add-to-index",
+        help="Sticker picker pack directory (usually 'web/packs/')",
+        type=str,
+        metavar="path",
+    )
+    parser.add_argument("path", help="Path to the sticker pack directory", type=str)
+
+    args = parser.parse_args()
+    asyncio.get_event_loop().run_until_complete(main(args))
 
 
 if __name__ == "__main__":

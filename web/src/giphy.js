@@ -1,6 +1,6 @@
-import {Component, html} from "../lib/htm/preact.js";
+import { Component, html } from "../lib/htm/preact.js";
 import * as widgetAPI from "./widget-api.js";
-import {SearchBox} from "./search-box.js";
+import { SearchBox } from "./search-box.js";
 
 const GIPHY_SEARCH_DEBOUNCE = 1000
 let GIPHY_API_KEY = "HQku8974Uq5MZn3MZns46kXn2R4GDm75"
@@ -38,12 +38,12 @@ export class GiphySearchTab extends Component {
 			// TODO handle error responses properly?
 			const data = await resp.json()
 			if (data.data.length === 0) {
-				this.setState({gifs: [], error: "No results"})
+				this.setState({ gifs: [], error: "No results" })
 			} else {
-				this.setState({gifs: data.data, error: null})
+				this.setState({ gifs: data.data, error: null })
 			}
 		} catch (error) {
-			this.setState({error})
+			this.setState({ error })
 		}
 	}
 
@@ -59,7 +59,7 @@ export class GiphySearchTab extends Component {
 	}
 
 	updateGifSearchQuery(event) {
-		this.setState({searchTerm: event.target.value})
+		this.setState({ searchTerm: event.target.value })
 		clearTimeout(this.searchTimeout)
 		this.searchTimeout = setTimeout(() => this.makeGifSearchRequest(), GIPHY_SEARCH_DEBOUNCE)
 	}

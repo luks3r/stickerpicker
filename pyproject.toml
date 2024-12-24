@@ -21,8 +21,8 @@ classifiers = [
 	"Programming Language :: Python :: 3.7",
 	"Programming Language :: Python :: 3.8",
 	"Programming Language :: Python :: 3.9",
+	"Programming Language :: Python :: 3.10",
 ]
-
 dependencies = [
 	"aiohttp",
 	"yarl",
@@ -30,7 +30,16 @@ dependencies = [
 	"telethon",
 	"cryptg",
 	"python-magic",
+	"rlottie-python",
 ]
+
+[project.optional-dependencies]
+test = ["pytest>=8.3.0", "pytest-asyncio>=0.21.0", "pytest-mock>=3.10.0"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+python_files = ["test_*.py"]
 
 [project.scripts]
 sticker-import = "sticker.stickerimport:cmd"

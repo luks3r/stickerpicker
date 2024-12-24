@@ -1,5 +1,6 @@
 # maunium-stickerpicker - A fast and simple Matrix sticker picker widget.
 # Copyright (C) 2020 Tulir Asokan
+# Copyright (C) 2024 Lukser
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as published by
@@ -13,37 +14,51 @@
 #
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
-from typing import Dict
+from typing import Dict, Optional, cast
 import argparse
 import asyncio
 import os.path
 import json
 import re
+from icecream import ic
 
 from telethon import TelegramClient
 from telethon.tl.functions.messages import GetAllStickersRequest, GetStickerSetRequest
 from telethon.tl.types.messages import AllStickers
 from telethon.tl.types import (
+    DocumentEmpty,
     InputStickerSetShortName,
     Document,
     DocumentAttributeSticker,
 )
 from telethon.tl.types.messages import StickerSet as StickerSetFull
 
+from sticker.lib.image import GenericImage, ImageFormat
+
 from .lib import matrix, util
 
 
 async def reupload_document(
     client: TelegramClient, document: Document
-) -> matrix.StickerInfo:
+) -> Optional[matrix.StickerInfo]:
     print(f"Reuploading {document.id}", end="", flush=True)
     data = await client.download_media(document, file=bytes)
     print(".", end="", flush=True)
-    data, width, height = util.convert_image(data)
+
+    if not data or isinstance(data, str):
+        raise Exception("Failed to download sticker")
+
+    image_format = ImageFormat.from_mime_type(document.mime_type)
+    generic_image = GenericImage.from_bytes(data, image_format)
+
     print(".", end="", flush=True)
-    mxc = await matrix.upload(data, "image/png", f"{document.id}.png")
+    mxc = await matrix.upload(
+        data,
+        image_format.to_mime_type(),
+        f"{document.id}.{image_format.to_extension()}",
+    )
     print(".", flush=True)
-    return util.make_sticker(mxc, width, height, len(data))
+    return util.make_sticker(mxc, generic_image.width, generic_image.height, len(data))
 
 
 def add_meta(
@@ -91,13 +106,16 @@ async def reupload_pack(
 
     reuploaded_documents: Dict[int, matrix.StickerInfo] = {}
     for document in pack.documents:
+        if isinstance(document, DocumentEmpty):
+            continue
         try:
             reuploaded_documents[document.id] = already_uploaded[document.id]
             print(f"Skipped reuploading {document.id}")
         except KeyError:
-            reuploaded_documents[document.id] = await reupload_document(
-                client, document
-            )
+            doc = await reupload_document(client, document)
+            if not doc:
+                continue
+            reuploaded_documents[document.id] = doc
         # Always ensure the body and telegram metadata is correct
         add_meta(document, reuploaded_documents[document.id], pack)
 
@@ -107,8 +125,18 @@ async def reupload_pack(
         for document_id in sticker.documents:
             doc = reuploaded_documents[document_id]
             # If there was no sticker metadata, use the first emoji we find
-            if doc["body"] == "":
+            if "body" not in doc or doc["body"] == "":
                 doc["body"] = sticker.emoticon
+
+            if "net.maunium.telegram.sticker" not in doc:
+                doc["net.maunium.telegram.sticker"] = {
+                    "pack": {
+                        "id": str(pack.set.id),
+                        "short_name": pack.set.short_name,
+                    },
+                    "id": str(document_id),
+                    "emoticons": [],
+                }
             doc["net.maunium.telegram.sticker"]["emoticons"].append(sticker.emoticon)
 
     with util.open_utf8(pack_path, "w") as pack_file:
@@ -159,40 +187,42 @@ parser.add_argument(
 async def main(args: argparse.Namespace) -> None:
     await matrix.load_config(args.config)
     client = TelegramClient(args.session, 298751, "cb676d6bae20553c9996996a8f52b4d7")
-    await client.start()
+    try:
+        await client.start()
 
-    if args.list:
-        stickers: AllStickers = await client(GetAllStickersRequest(hash=0))
-        index = 1
-        width = len(str(len(stickers.sets)))
-        print("Your saved sticker packs:")
-        for saved_pack in stickers.sets:
-            print(
-                f"{index:>{width}}. {saved_pack.title} "
-                f"(t.me/addstickers/{saved_pack.short_name})"
-            )
-            index += 1
-    elif args.pack[0]:
-        input_packs = []
-        for pack_url in args.pack[0]:
-            match = pack_url_regex.match(pack_url)
-            if not match:
-                print(f"'{pack_url}' doesn't look like a sticker pack URL")
-                return
-            input_packs.append(InputStickerSetShortName(short_name=match.group(1)))
-        for input_pack in input_packs:
-            pack: StickerSetFull = await client(
-                GetStickerSetRequest(input_pack, hash=0)
-            )
-            await reupload_pack(client, pack, args.output_dir)
-    else:
-        parser.print_help()
-
-    await client.disconnect()
+        if args.list:
+            stickers: AllStickers = await client(GetAllStickersRequest(hash=0))
+            index = 1
+            width = len(str(len(stickers.sets)))
+            print("Your saved sticker packs:")
+            for saved_pack in stickers.sets:
+                print(
+                    f"{index:>{width}}. {saved_pack.title} "
+                    f"(t.me/addstickers/{saved_pack.short_name})"
+                )
+                index += 1
+        elif args.pack[0]:
+            input_packs = []
+            for pack_url in args.pack[0]:
+                match = pack_url_regex.match(pack_url)
+                if not match:
+                    print(f"'{pack_url}' doesn't look like a sticker pack URL")
+                    return
+                input_packs.append(InputStickerSetShortName(short_name=match.group(1)))
+            for input_pack in input_packs:
+                pack: StickerSetFull = await client(
+                    GetStickerSetRequest(input_pack, hash=0)
+                )
+                await reupload_pack(client, pack, args.output_dir)
+        else:
+            parser.print_help()
+    finally:
+        await client.disconnect()
 
 
 def cmd() -> None:
-    asyncio.get_event_loop().run_until_complete(main(parser.parse_args()))
+    args = parser.parse_args()
+    asyncio.get_event_loop().run_until_complete(main(args))
 
 
 if __name__ == "__main__":
