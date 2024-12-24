@@ -13,3 +13,12 @@ web/lib/import-map.json
 *.session
 /*.json
 *.bak
+# Devenv
+.devenv*
+devenv.local.nix
+
+# direnv
+.direnv
+
+# pre-commit
+.pre-commit-config.yaml
