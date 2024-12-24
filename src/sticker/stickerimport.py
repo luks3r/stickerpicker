@@ -23,13 +23,19 @@ import re
 from telethon import TelegramClient
 from telethon.tl.functions.messages import GetAllStickersRequest, GetStickerSetRequest
 from telethon.tl.types.messages import AllStickers
-from telethon.tl.types import InputStickerSetShortName, Document, DocumentAttributeSticker
+from telethon.tl.types import (
+    InputStickerSetShortName,
+    Document,
+    DocumentAttributeSticker,
+)
 from telethon.tl.types.messages import StickerSet as StickerSetFull
 
 from .lib import matrix, util
 
 
-async def reupload_document(client: TelegramClient, document: Document) -> matrix.StickerInfo:
+async def reupload_document(
+    client: TelegramClient, document: Document
+) -> matrix.StickerInfo:
     print(f"Reuploading {document.id}", end="", flush=True)
     data = await client.download_media(document, file=bytes)
     print(".", end="", flush=True)
@@ -40,7 +46,9 @@ async def reupload_document(client: TelegramClient, document: Document) -> matri
     return util.make_sticker(mxc, width, height, len(data))
 
 
-def add_meta(document: Document, info: matrix.StickerInfo, pack: StickerSetFull) -> None:
+def add_meta(
+    document: Document, info: matrix.StickerInfo, pack: StickerSetFull
+) -> None:
     for attr in document.attributes:
         if isinstance(attr, DocumentAttributeSticker):
             info["body"] = attr.alt
@@ -55,22 +63,28 @@ def add_meta(document: Document, info: matrix.StickerInfo, pack: StickerSetFull)
     }
 
 
-async def reupload_pack(client: TelegramClient, pack: StickerSetFull, output_dir: str) -> None:
+async def reupload_pack(
+    client: TelegramClient, pack: StickerSetFull, output_dir: str
+) -> None:
     pack_path = os.path.join(output_dir, f"{pack.set.short_name}.json")
     try:
         os.mkdir(os.path.dirname(pack_path))
     except FileExistsError:
         pass
 
-    print(f"Reuploading {pack.set.title} with {pack.set.count} stickers "
-          f"and writing output to {pack_path}")
+    print(
+        f"Reuploading {pack.set.title} with {pack.set.count} stickers "
+        f"and writing output to {pack_path}"
+    )
 
     already_uploaded = {}
     try:
         with util.open_utf8(pack_path) as pack_file:
             existing_pack = json.load(pack_file)
-            already_uploaded = {int(sticker["net.maunium.telegram.sticker"]["id"]): sticker
-                                for sticker in existing_pack["stickers"]}
+            already_uploaded = {
+                int(sticker["net.maunium.telegram.sticker"]["id"]): sticker
+                for sticker in existing_pack["stickers"]
+            }
             print(f"Found {len(already_uploaded)} already reuploaded stickers")
     except FileNotFoundError:
         pass
@@ -81,7 +95,9 @@ async def reupload_pack(client: TelegramClient, pack: StickerSetFull, output_dir
             reuploaded_documents[document.id] = already_uploaded[document.id]
             print(f"Skipped reuploading {document.id}")
         except KeyError:
-            reuploaded_documents[document.id] = await reupload_document(client, document)
+            reuploaded_documents[document.id] = await reupload_document(
+                client, document
+            )
         # Always ensure the body and telegram metadata is correct
         add_meta(document, reuploaded_documents[document.id], pack)
 
@@ -96,34 +112,48 @@ async def reupload_pack(client: TelegramClient, pack: StickerSetFull, output_dir
             doc["net.maunium.telegram.sticker"]["emoticons"].append(sticker.emoticon)
 
     with util.open_utf8(pack_path, "w") as pack_file:
-        json.dump({
-            "title": pack.set.title,
-            "id": f"tg-{pack.set.id}",
-            "net.maunium.telegram.pack": {
-                "short_name": pack.set.short_name,
-                "hash": str(pack.set.hash),
+        json.dump(
+            {
+                "title": pack.set.title,
+                "id": f"tg-{pack.set.id}",
+                "net.maunium.telegram.pack": {
+                    "short_name": pack.set.short_name,
+                    "hash": str(pack.set.hash),
+                },
+                "stickers": list(reuploaded_documents.values()),
             },
-            "stickers": list(reuploaded_documents.values()),
-        }, pack_file, ensure_ascii=False)
+            pack_file,
+            ensure_ascii=False,
+        )
     print(f"Saved {pack.set.title} as {pack.set.short_name}.json")
 
     util.add_to_index(os.path.basename(pack_path), output_dir)
 
 
-pack_url_regex = re.compile(r"^(?:(?:https?://)?(?:t|telegram)\.(?:me|dog)/addstickers/)?"
-                            r"([A-Za-z0-9-_]+)"
-                            r"(?:\.json)?$")
+pack_url_regex = re.compile(
+    r"^(?:(?:https?://)?(?:t|telegram)\.(?:me|dog)/addstickers/)?"
+    r"([A-Za-z0-9-_]+)"
+    r"(?:\.json)?$"
+)
 
 parser = argparse.ArgumentParser()
 
 parser.add_argument("--list", help="List your saved sticker packs", action="store_true")
-parser.add_argument("--session", help="Telethon session file name", default="sticker-import")
-parser.add_argument("--config",
-                    help="Path to JSON file with Matrix homeserver and access_token",
-                    type=str, default="config.json")
-parser.add_argument("--output-dir", help="Directory to write packs to", default="web/packs/",
-                    type=str)
-parser.add_argument("pack", help="Sticker pack URLs to import", action="append", nargs="*")
+parser.add_argument(
+    "--session", help="Telethon session file name", default="sticker-import"
+)
+parser.add_argument(
+    "--config",
+    help="Path to JSON file with Matrix homeserver and access_token",
+    type=str,
+    default="config.json",
+)
+parser.add_argument(
+    "--output-dir", help="Directory to write packs to", default="web/packs/", type=str
+)
+parser.add_argument(
+    "pack", help="Sticker pack URLs to import", action="append", nargs="*"
+)
 
 
 async def main(args: argparse.Namespace) -> None:
@@ -137,8 +167,10 @@ async def main(args: argparse.Namespace) -> None:
         width = len(str(len(stickers.sets)))
         print("Your saved sticker packs:")
         for saved_pack in stickers.sets:
-            print(f"{index:>{width}}. {saved_pack.title} "
-                  f"(t.me/addstickers/{saved_pack.short_name})")
+            print(
+                f"{index:>{width}}. {saved_pack.title} "
+                f"(t.me/addstickers/{saved_pack.short_name})"
+            )
             index += 1
     elif args.pack[0]:
         input_packs = []
@@ -149,7 +181,9 @@ async def main(args: argparse.Namespace) -> None:
                 return
             input_packs.append(InputStickerSetShortName(short_name=match.group(1)))
         for input_pack in input_packs:
-            pack: StickerSetFull = await client(GetStickerSetRequest(input_pack, hash=0))
+            pack: StickerSetFull = await client(
+                GetStickerSetRequest(input_pack, hash=0)
+            )
             await reupload_pack(client, pack, args.output_dir)
     else:
         parser.print_help()
